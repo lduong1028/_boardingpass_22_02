@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Boarding Pass | Lê Trần Ánh Dương</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Montserrat:wght@400;500;700;800&family=Share+Tech+Mono&family=La+Belle+Aurore&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --paper-bg: #fdfbf7;
+            --paper-texture: #f4e4bc;
+            --blue-navy: #1e3a8a; 
+            --gold-accent: #b48b3e;
+            --text-main: #2c3e50;
+            --stamp-red: #c0392b;
+            --line-color: rgba(30, 58, 138, 0.2);
+        }
+
+        * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: #dcd0c0;
+            background-image: radial-gradient(#bcaaa4 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(236, 233, 225, 0.98);
+            z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.6s ease;
+        }
+        
+        .btn-checkin {
+            padding: 15px 40px;
+            background: var(--blue-navy); color: #fff;
+            border: 2px solid var(--gold-accent);
+            border-radius: 50px;
+            font-size: 16px; font-weight: 700; letter-spacing: 2px;
+            cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 10px 30px rgba(30, 58, 138, 0.3);
+            transition: transform 0.2s;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .btn-checkin:active { transform: scale(0.95); }
+
+        #music-toggle {
+            position: fixed; top: 20px; right: 20px; z-index: 1000;
+            width: 40px; height: 40px;
+            background: #fff; border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; border: 1px solid #ddd;
+            transition: 0.3s;
+            color: var(--blue-navy);
+        }
+        .music-playing { animation: spin 4s linear infinite; border-color: var(--gold-accent) !important; color: var(--gold-accent) !important; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .stage {
+            perspective: 1500px; 
+            padding: 40px 20px;
+            width: 100%; max-width: 900px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .ticket-wrapper {
+            width: 100%; max-width: 850px;
+            position: relative;
+            transform-style: preserve-3d;
+            will-change: transform;
+            cursor: grab;
+            margin-bottom: 40px;
+        }
+        .ticket-wrapper:active { cursor: grabbing; }
+
+        .ticket {
+            display: flex;
+            background: var(--paper-bg);
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            position: relative;
+            transform-style: preserve-3d;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .shine {
+            position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(135deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 60%);
+            transform: rotate(25deg); pointer-events: none; z-index: 10; opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .ticket-main {
+            flex: 2.5; padding: 30px;
+            border-right: 2px dashed #ccc;
+            position: relative;
+            background-image: linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px);
+            background-size: 40px 100%;
+        }
+        
+        .ticket-main::after, .ticket-main::before {
+            content: ''; position: absolute; right: -12px; width: 24px; height: 24px;
+            background-color: #dcd0c0; border-radius: 50%; z-index: 5;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.1);
+        }
+        .ticket-main::before { top: -14px; }
+        .ticket-main::after { bottom: -14px; }
+
+        .airline-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--blue-navy); padding-bottom: 15px; margin-bottom: 20px;
+        }
+        .airline-logo {
+            font-family: 'Share Tech Mono', monospace; font-size: 24px; color: var(--blue-navy); font-weight: bold;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .boarding-pass-label {
+            font-size: 12px; letter-spacing: 3px; color: var(--gold-accent); text-transform: uppercase; font-weight: 700;
+        }
+
+        .passenger-info { margin-bottom: 20px; }
+        .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .value-name { 
+            font-family: 'Dancing Script', cursive; font-size: 32px; color: #000; margin: 5px 0 0 0; 
+        }
+
+        .flight-details {
+            display: flex; justify-content: space-between; gap: 15px;
+        }
+        .flight-block h4 { margin: 0; font-size: 10px; color: #888; text-transform: uppercase; }
+        .flight-block p { margin: 5px 0 0 0; font-size: 18px; font-weight: 700; color: var(--blue-navy); }
+
+        .ticket-stub {
+            flex: 1; padding: 20px;
+            background: #f4f1ea;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            position: relative;
+            transform-origin: left center;
+            transition: transform 1s ease, opacity 1s ease;
+        }
+        
+        .ticket-stub.torn {
+            transform: rotate(15deg) translateY(150px) translateX(50px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .stub-flight { font-size: 24px; font-weight: 800; color: var(--blue-navy); margin: 10px 0; }
+        .barcode {
+            height: 40px; width: 100%;
+            background: repeating-linear-gradient(90deg, #000 0px, #000 2px, transparent 2px, transparent 4px);
+            opacity: 0.7; margin-top: auto;
+        }
+
+        .stamp {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(2);
+            width: 120px; height: 120px;
+            border: 4px solid var(--stamp-red);
+            border-radius: 50%;
+            color: var(--stamp-red);
+            display: flex; justify-content: center; align-items: center;
+            font-weight: 900; font-size: 18px; text-transform: uppercase;
+            transform: translate(-50%, -50%) rotate(-15deg) scale(3);
+            opacity: 0; pointer-events: none; z-index: 20;
+            background: rgba(255,255,255,0.1);
+            mask-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/8399/grunge.png');
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .stamp.visible {
+            opacity: 0.8;
+            transform: translate(-50%, -50%) rotate(-15deg) scale(1);
+        }
+        .stamp::after { content: "CONFIRMED"; }
+
+        .fade-in-up {
+            opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-in-up.visible { opacity: 1; transform: translateY(0); }
+
+        .letter-section {
+            width: 100%; max-width: 850px;
+            background: #fff; padding: 40px; border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 40px;
+            position: relative;
+            background-image: repeating-linear-gradient(#fff 0px, #fff 24px, #e1e8ed 25px);
+            line-height: 25px;
+        }
+        
+        .letter-section::before {
+            content: ''; position: absolute; left: 30px; top: 0; bottom: 0;
+            width: 2px; background: rgba(192, 57, 43, 0.15);
+        }
+
+        .letter-title {
+            font-family: 'Dancing Script', cursive; 
+            font-size: 28px; font-weight: bold; color: var(--blue-navy); margin-bottom: 20px; padding-left: 20px;
+        }
+        .letter-content {
+            font-family: 'Patrick Hand', cursive; 
+            font-size: 20px; color: #444; padding-left: 20px; letter-spacing: 0.5px;
+        }
+        .letter-content p { margin-bottom: 15px; }
+
+        .dresscode-section {
+            width: 100%; max-width: 600px;
+            background: rgba(255,255,255,0.9); padding: 30px; border-radius: 16px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05); text-align: center; margin-bottom: 40px;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        .dresscode-title {
+            font-family: 'Share Tech Mono', monospace; font-size: 14px; font-weight: 700; color: var(--gold-accent);
+            letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px;
+        }
+        .dresscode-value { font-size: 20px; font-weight: 800; color: var(--blue-navy); margin-bottom: 20px; }
+        
+        .dresscode-colors { display: flex; gap: 15px; justify-content: center; }
+        .color-swatch {
+            width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); position: relative; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s;
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch::after {
+            content: attr(data-color); position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+            font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--blue-navy); background: rgba(255,255,255,0.95);
+            padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.05);
+            opacity: 0; pointer-events: none; transition: opacity 0.2s, bottom 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .color-swatch:hover::after { opacity: 1; bottom: -35px; }
+
+        .timeline-section { 
+            position: relative; width: 100%; max-width: 600px; padding-left: 10px; margin-bottom: 50px; 
+        }
+        .timeline-header {
+            font-family: 'Dancing Script', cursive; text-align: center; margin: 0 0 40px 0; font-size: 36px; color: var(--blue-navy);
+        }
+        .timeline-line-bg { position: absolute; left: 33px; top: 70px; bottom: 0; width: 2px; background: var(--line-color); }
+        .timeline-line-active {
+            position: absolute; left: 33px; top: 70px; width: 2px;
+            background: linear-gradient(to bottom, var(--gold-accent) 80%, rgba(180, 139, 62, 0) 100%);
+            height: 0; transition: height 0.1s linear;
+        }
+        .timeline-block {
+            position: relative; margin-bottom: 70px; padding-left: 60px; opacity: 0.3; transform: scale(0.95); transition: all 0.5s ease;
+        }
+        .timeline-block.active { opacity: 1; transform: scale(1); }
+        .timeline-block.past { opacity: 0.5; transform: scale(0.98); }
+        
+        .timeline-dot {
+            position: absolute; left: 24px; top: 0px; width: 20px; height: 20px;
+            background: #fff; border: 4px solid #dcd0c0; border-radius: 50%; z-index: 2; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .timeline-block.active .timeline-dot { 
+            background: var(--gold-accent); 
+            border-color: var(--gold-accent); 
+            box-shadow: 0 0 0 8px rgba(180, 139, 62, 0.2), 0 0 15px rgba(180, 139, 62, 0.4); 
+            transform: scale(1.15); 
+        }
+        .timeline-block.past .timeline-dot { 
+            background: var(--gold-accent); 
+            border-color: var(--gold-accent); 
+            opacity: 0.4; 
+            transform: scale(0.9); 
+        }
+
+        .timeline-time { font-family: 'Share Tech Mono', monospace; font-size: 14px; color: var(--gold-accent); font-weight: 700; margin-bottom: 6px; }
+        .timeline-title { margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: var(--blue-navy); }
+        .timeline-desc { font-size: 15px; color: #555; margin: 0; }
+
+        .form-section {
+            width: 100%; max-width: 500px;
+            background: #fff; padding: 30px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 40px;
+        }
+
+        .input-group { margin-bottom: 15px; }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px;
+            font-family: 'Montserrat', sans-serif; transition: 0.3s;
+        }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            border-color: var(--blue-navy); outline: none; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+        .btn-submit {
+            width: 100%; padding: 16px; background: var(--blue-navy); color: #fff;
+            border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; font-size: 15px;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(30, 58, 138, 0.2); }
+        
+        @media (max-width: 768px) {
+            .ticket { flex-direction: column; }
+            .ticket-main { border-right: none; border-bottom: 2px dashed #ccc; padding: 25px; }
+            .ticket-main::after, .ticket-main::before { display: none; }
+            .flight-details { flex-wrap: wrap; }
+            .ticket-stub { 
+                padding: 20px; border-top: 2px dashed #ccc; 
+                flex-direction: row; justify-content: space-between; align-items: center;
+            }
+            .barcode { width: 80px; height: 30px; margin: 0; }
+            .ticket-stub.torn { transform: translateY(150px) rotate(5deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bgMusic" loop>
+        <source src="https://github.com/Tiendat513/EndlessChapter/raw/refs/heads/main/A.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="music-toggle" onclick="toggleMusic()">
+        <i class="fas fa-music"></i>
+    </div>
+
+    <div id="overlay">
+        <h1 style="font-family: 'Dancing Script', cursive; font-size: 3.5rem; color: var(--blue-navy); margin-bottom: 10px;">Hello!</h1>
+        <p style="margin-bottom: 30px; color: #666; font-size: 1.1rem;">Bạn có thông báo từ Ánh Dương...</p>
+        <button class="btn-checkin" onclick="startExperience()">
+            <i class="fas fa-plane-departure"></i> CHECK-IN
+        </button>
+    </div>
+
+    <div class="stage">
+        <div class="ticket-wrapper fade-in-up" id="ticket3d">
+            <div class="ticket">
+                <div class="shine" id="shine"></div>
+                
+                <div class="ticket-main">
+                    <div class="airline-header">
+                        <div class="airline-logo"><i class="fas fa-graduation-cap"></i> 12C6 AIRLINES</div>
+                        <div class="boarding-pass-label">BOARDING PASS</div>
+                    </div>
+                    
+                    <div class="passenger-info">
+                        <div class="label">PASSENGER NAME</div>
+                        <h2 class="value-name" id="passengerName">Võ Hoàng Lê Na</h2>
+                    </div>
+
+                    <div class="flight-details">
+                        <div class="flight-block">
+                            <h4>Flight</h4>
+                            <p>KYYEU18</p>
+                        </div>
+                        <div class="flight-block">
+                            <h4>Date</h4>
+                            <p>22 FEB</p>
+                        </div>
+                        <div class="flight-block">
+                            <h4>Time</h4>
+                            <p>08:00 AM</p>
+                        </div>
+                        <div class="flight-block">
+                            <h4>Seat</h4>
+                            <p id="seatNumber">VIP</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stamp" id="stamp"></div>
+                </div>
+
+                <div class="ticket-stub" id="stub">
+                    <div class="label">CLASS</div>
+                    <div style="font-weight:bold; font-size:1.2rem; margin-bottom:5px; color:var(--blue-navy)">FIRST CLASS</div>
+                    <div class="stub-flight">12C6</div>
+                    <div class="barcode"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="letter-section fade-in-up" id="letterSection">
+            <div class="letter-title" id="letterTitle">Gửi Lê Na,</div>
+            <div class="letter-content" id="letterContent">
+                <p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>
+            </div>
+        </div>
+
+        <div class="dresscode-section fade-in-up">
+            <div class="dresscode-title">DRESSCODE</div>
+            <div class="dresscode-value">Lịch sự & Trang nhã</div>
+            <div class="dresscode-value" style="font-size:11px; font-style: italic;">đừng chiếm spotlight cụa tao</div>
+            
+            <div class="dresscode-colors">
+                <div class="color-swatch" style="background: #ffffff;" data-color="Trắng"></div>
+                <div class="color-swatch" style="background: #1a1a1a;" data-color="Đen"></div>
+                <div class="color-swatch" style="background: #E8DCC4;" data-color="Be"></div>
+                <div class="color-swatch" style="background: #a9a9a9;" data-color="Xám"></div>
+            </div>
+        </div>
+
+        <section class="timeline-section" id="timeline">
+            <h2 class="timeline-header fade-in-up">Lịch Trình Bay</h2>
+            <div class="timeline-line-bg"></div>
+            <div class="timeline-line-active" id="progressLine"></div>
+            
+            <div class="timeline-block fade-in-up">
+                <div class="timeline-dot"></div>
+                <div class="timeline-time">07:00</div>
+                <h3 class="timeline-title">Tập trung & Chụp sân trường</h3>
+                <p class="timeline-desc">Chụp tập thể lớp ngoài sân</p>
+            </div>
+            <div class="timeline-block fade-in-up">
+                <div class="timeline-dot"></div>
+                <div class="timeline-time">08:00</div>
+                <h3 class="timeline-title">Đón khách mời</h3>
+                <p class="timeline-desc">Chụp cùng Người thân & Bạn bè</p>
+            </div>
+            <div class="timeline-block fade-in-up">
+                <div class="timeline-dot"></div>
+                <div class="timeline-time">09:00</div>
+                <h3 class="timeline-title">Concept Lớp</h3>
+                <p class="timeline-desc">Chụp ảnh tập thể trong lớp</p>
+            </div>
+            <div class="timeline-block fade-in-up">
+                <div class="timeline-dot"></div>
+                <div class="timeline-time">...</div>
+                <h3 class="timeline-title">Secret...</h3>
+                <p class="timeline-desc">Và những điều thú vị phía sau</p>
+            </div>
+        </section>
+
+        <div class="form-section fade-in-up" id="formSection">
+            <h3 style="text-align: center; color: var(--blue-navy); margin-top: 0; font-weight: 800;">XÁC NHẬN THAM DỰ</h3>
+            <p style="text-align: center; font-size: 14px; color: #666; margin-bottom: 20px;">
+                Vui lòng điền thông tin để hoàn tất thủ tục lên máy bay!
+            </p>
+            
+            <form id="rsvpForm">
+                <div class="input-group">
+                    <input type="text" name="name" id="formName" placeholder="Họ và tên..." required>
+                </div>
+                <div class="input-group">
+                    <input type="text" name="email" placeholder="Email (để nhận vé điện tử)...">
+                </div>
+                <div class="input-group">
+                    <select name="status">
+                        <option value="Join">Sẽ tham gia chuyến bay!</option>
+                        <option value="Busy">Khác</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <textarea name="message" rows="2" placeholder="Lời nhắn cho cơ trưởng..."></textarea>
+                </div>
+                <button type="submit" class="btn-submit" id="btnSubmit">HOÀN TẤT CHECK-IN</button>
+            </form>
+        </div>
+        
+        <div style="text-align: center; padding-bottom: 40px; font-size: 11px; color: #888; letter-spacing: 2px; font-family: 'Share Tech Mono', monospace;" class="fade-in-up">
+            NGUYEN TIEN DAT © 2026
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbwxg5Rsm-_sM6oWBW6N2uohwkQo4koYqI-iBP9vEOwyf8TpD-yrryvE5yhKb1Is3SnA-A/exec";
+        
+        const GUEST_DATABASE = {
+            '1': { 
+                name: "Phùng Bảo Châu", 
+                seat: "A01",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            },
+            '2': { 
+                name: "Võ Hoàng Nguyệt Ny", 
+                seat: "A02",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            },
+            '3': { 
+                name: "Phạm Lê Minh Tuệ", 
+                seat: "A03",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '4': { 
+                name: "Nguyễn Chí Nam", 
+                seat: "A04",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '5': { 
+                name: "Nguyễn Văn Đạt", 
+                seat: "A05",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '6': { 
+                name: "Huỳnh Nhật Tiến", 
+                seat: "A06",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '7': { 
+                name: "Nguyễn Tiến Đạt", 
+                seat: "A07",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '8': { 
+                name: "Đỗ Huy Tuấn", 
+                seat: "A08",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '9': { 
+                name: "Bùi Thị Như Thùy", 
+                seat: "A09",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '10': { 
+                name: "Nguyễn Trâm Anh", 
+                seat: "A10",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '11': { 
+                name: "Hồ Trịnh Việt Diễm", 
+                seat: "A11",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '12': { 
+                name: "Huỳnh Thị Hoài Anh", 
+                seat: "A12",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '13': { 
+                name: "Lê Tấn Anh Quân", 
+                seat: "A13",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '14': { 
+                name: "Lê Hồng Bảo Ngân", 
+                seat: "A14",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+            '15': { 
+                name: "Trần Anh Khoa", 
+                seat: "A15",
+                content: `<p>Một nghìn ngày vừa qua không dài, nhưng đủ để chúng ta cùng nhau tạo nên những kỉ niệm đáng nhớ.</p>
+                <p>Mình thật sự biết ơn và trân trọng những khoảnh khắc ấy. Trước khi bước sang một trang mới của cuộc đời, mình rất mong có cậu cùng ghi lại những kỷ niệm cuối cùng của thời học sinh.</p>
+                <p>Sự hiện diện của cậu là mảnh ghép quý giá để buổi kỉ yếu của mình thêm phần trọn vẹn hơn.</p>
+                <p style="margin-top: 30px;"><strong>"Thanh xuân này, cảm ơn vì đã có cậu...".</strong></p>`
+            }
+        };
+
+        const bgMusic = document.getElementById('bgMusic');
+        const musicBtn = document.getElementById('music-toggle');
+        let isPlaying = false;
+        let playPromise;
+
+        function startExperience() {
+            document.getElementById('overlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('overlay').style.display = 'none';
+                checkScroll(); 
+            }, 600);
+            
+            bgMusic.volume = 0.5;
+            isPlaying = true;
+            musicBtn.classList.add('music-playing');
+            musicBtn.innerHTML = '<i class="fas fa-music"></i>';
+
+            playPromise = bgMusic.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    isPlaying = false;
+                    musicBtn.classList.remove('music-playing');
+                    musicBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                });
+            }
+
+            requestAccess();
+        }
+
+        function toggleMusic() {
+            if (isPlaying) {
+                isPlaying = false;
+                musicBtn.classList.remove('music-playing');
+                musicBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        bgMusic.pause();
+                    }).catch(e => { });
+                } else {
+                    bgMusic.pause();
+                }
+            } else {
+                isPlaying = true;
+                musicBtn.classList.add('music-playing');
+                musicBtn.innerHTML = '<i class="fas fa-music"></i>';
+                
+                playPromise = bgMusic.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => {
+                        isPlaying = false;
+                        musicBtn.classList.remove('music-playing');
+                        musicBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                    });
+                }
+            }
+        }
+
+        function personalize() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+            const n = urlParams.get('n');
+
+            const passengerName = document.getElementById('passengerName');
+            const seatNumber = document.getElementById('seatNumber');
+            const formName = document.getElementById('formName');
+            const letterTitle = document.getElementById('letterTitle');
+            const letterContent = document.getElementById('letterContent');
+
+            if (id && GUEST_DATABASE[id]) {
+                const guest = GUEST_DATABASE[id];
+                passengerName.innerText = guest.name;
+                formName.value = guest.name;
+                if(guest.seat) seatNumber.innerText = guest.seat;
+                
+                letterTitle.innerText = `Gửi ${guest.name},`;
+                if(guest.content) letterContent.innerHTML = guest.content;
+
+            } else if (n) {
+                passengerName.innerText = n;
+                formName.value = n;
+                letterTitle.innerText = `Gửi ${n},`;
+            }
+        }
+        personalize();
+
+        const wrapper = document.getElementById('ticket3d');
+        const ticket = document.querySelector('.ticket');
+        const shine = document.getElementById('shine');
+        const MAX_TILT = 8; 
+
+        function updateTransform(x, y) {
+            ticket.style.transform = `rotateY(${x}deg) rotateX(${-y}deg)`;
+            shine.style.opacity = Math.min(Math.abs(x) + Math.abs(y), 10) / 20 * 0.4;
+            shine.style.transform = `translateX(${x * 3}px) translateY(${y * 3}px)`;
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            const x = (window.innerWidth / 2 - e.clientX) / 70;
+            const y = (window.innerHeight / 2 - e.clientY) / 70;
+            updateTransform(x, y);
+        });
+
+        let startX = 0, startY = 0, curX = 0, curY = 0;
+        wrapper.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        }, {passive: true});
+        
+        wrapper.addEventListener('touchmove', e => {
+            const deltaX = (e.touches[0].clientX - startX) / 10; 
+            const deltaY = (e.touches[0].clientY - startY) / 10;
+            curX = Math.max(-MAX_TILT, Math.min(MAX_TILT, curX + deltaX));
+            curY = Math.max(-MAX_TILT, Math.min(MAX_TILT, curY + deltaY));
+            updateTransform(curX, -curY);
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        }, {passive: true});
+
+        function handleOrientation(e) {
+            if (e.gamma === null) return;
+            let x = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma / 2)); 
+            let y = Math.max(-MAX_TILT, Math.min(MAX_TILT, (e.beta - 45) / 2));
+            updateTransform(x, y);
+        }
+
+        async function requestAccess() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                } catch (e) {}
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+        }
+
+        const fadeElements = document.querySelectorAll('.fade-in-up');
+        const timelineSection = document.getElementById('timeline');
+        const timelineLine = document.getElementById('progressLine');
+        const timelineBlocks = document.querySelectorAll('.timeline-block');
+
+        function checkScroll() {
+            const triggerBottom = window.innerHeight * 0.85;
+            const centerPoint = window.innerHeight * 0.5;
+            
+            fadeElements.forEach(el => {
+                const boxTop = el.getBoundingClientRect().top;
+                if(boxTop < triggerBottom) el.classList.add('visible');
+            });
+
+            timelineBlocks.forEach(block => {
+                const rect = block.getBoundingClientRect();
+                const blockCenter = rect.top + rect.height / 2;
+                
+                if (blockCenter < centerPoint + 60 && blockCenter > centerPoint - 60) {
+                    block.classList.add('active'); 
+                    block.classList.remove('past');
+                } else if (blockCenter <= centerPoint - 60) {
+                    block.classList.remove('active'); 
+                    block.classList.add('past');
+                } else {
+                    block.classList.remove('active'); 
+                    block.classList.remove('past');
+                }
+            });
+
+            if (timelineSection) {
+                const rect = timelineSection.getBoundingClientRect();
+                const start = window.innerHeight * 0.6;
+                const height = timelineSection.offsetHeight;
+                let percent = ((start - rect.top) / height) * 100;
+                if(timelineLine) timelineLine.style.height = `${Math.min(Math.max(percent, 0), 100)}%`;
+            }
+        }
+        window.addEventListener('scroll', checkScroll);
+
+        document.getElementById('rsvpForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmit');
+            const stub = document.getElementById('stub');
+            const stamp = document.getElementById('stamp');
+            const originalText = btn.innerText;
+            
+            btn.innerText = "ĐANG XỬ LÝ..."; btn.disabled = true;
+
+            const formData = new FormData(this);
+            const dataObject = Object.fromEntries(formData.entries());
+
+            fetch(API_URL, { 
+                method: 'POST', 
+                body: JSON.stringify(dataObject) 
+            })
+            .then(response => response.json()) 
+            .then(result => {
+                if(result.result === 'success') {
+                    stub.classList.add('torn');
+                    confetti({
+                        particleCount: 200, spread: 100, origin: { y: 0.6 },
+                        colors: ['#1e3a8a', '#b48b3e', '#ffffff']
+                    });
+                    setTimeout(() => { stamp.classList.add('visible'); }, 500);
+                    btn.innerText = "CHECK-IN THÀNH CÔNG!";
+                    btn.style.background = "#27ae60";
+                } else {
+                    throw new Error("Lỗi");
+                }
+            })
+            .catch(error => {
+                btn.innerText = "CÓ LỖI, THỬ LẠI SAU";
+                btn.style.background = "#c0392b";
+                setTimeout(() => { 
+                    btn.innerText = originalText; 
+                    btn.style.background = ""; 
+                    btn.disabled = false; 
+                }, 3000);
+            });
+        });
+    </script>
+</body>
+</html>
